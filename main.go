@@ -17,5 +17,5 @@ package main
 import "github.com/kubic-project/caasp-init/cmd"
 
 func main() {
-    cmd.Execute()
+	cmd.Execute()
 }
