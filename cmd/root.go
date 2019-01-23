@@ -18,26 +18,92 @@ import (
 	"fmt"
 	"os"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/kubic-project/caasp-init/pkg/certs"
+	"github.com/kubic-project/caasp-init/pkg/config"
+	"github.com/kubic-project/caasp-init/pkg/daemon"
+
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	cfgFile              string
+	registryConfigFolder = "/etc/docker"
+)
+
+const (
+	longDescription = `Set the initial docker daemon mirrors configuration.
+
+usage:
+
+$ caasp-init
+
+This will use default value for configuration file 
+
+'/etc/kubic/kubic-init.yaml'
+
+if you want to indicate a file run
+
+$ caasp-init -c /path/to/config/file.yaml
+
+If the configuration file has mirrors declared ot will generate the daemon.json
+file with the following structure:
+
+  {
+    "registries": [
+      {
+      "Mirrors": [
+        {
+        "URL": "https://airgappedregistry.com"
+        }
+      ],
+      "Prefix": "https://mycompany.registry.com"
+      }
+    ],
+    "iptables":false,
+    "log-level": "warn"
+  }
+
+If there is no mirror declared the configuration file will just be the default:
+
+  {
+    "iptables":false,
+    "log-level": "warn"
+    }
+
+For help use 'caasp-init help'
+`
+)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "caasp-init",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Short: "Set the initial docker daemon mirrors configuration.",
+	Long:  longDescription,
+	RunE:  runE,
+}
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+func runE(cmd *cobra.Command, args []string) error {
+	err := os.MkdirAll(registryConfigFolder, 0644)
+	if err != nil {
+		return err
+	}
+
+	kubicConfig, err := config.FileAndDefaultsToKubicInitConfig(cfgFile)
+	if err != nil {
+		return err
+	}
+
+	err = daemon.WriteConfigFile(kubicConfig)
+	if err != nil {
+		return err
+	}
+
+	err = certs.WriteCertificates(kubicConfig)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -50,40 +116,6 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
-
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.caasp-init.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
-
-// initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		// Search config in home directory with name ".caasp-init" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".caasp-init")
-	}
-
-	viper.AutomaticEnv() // read in environment variables that match
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
+	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "/etc/kubic/kubic-init.yaml", "kubibc-init.yaml config file")
+	rootCmd.AddCommand(newVersionCmd())
 }

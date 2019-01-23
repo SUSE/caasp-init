@@ -1,0 +1,8 @@
+[Unit]
+Description=caasp-init configuration service
+After=network.target
+ConditionPathExists=/etc/kubic/kubic-init.yaml
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/caasp-init -c /etc/kubic/kubic-init.yaml
