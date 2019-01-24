@@ -135,7 +135,7 @@ MANPAGES    := $(MANPAGES_MD:%.md=%)
 
 doc/man/%.1: doc/man/%.1.md
 	@$(GO_MD2MAN) -in $< -out $@.out
-	@go run doc/man/sanitize.go $@.out &> $@
+	@$(GO) run doc/man/sanitize.go $@.out &> $@
 	@rm $@.out
 
 doc: $(MANPAGES)
